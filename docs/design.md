@@ -134,7 +134,8 @@ format version may add an operator signature over the manifest.
 - Synapse configuration/database discovery;
 - structured logging and JSON output;
 - room inspection report; and
-- fixtures for complete, missing-PDU, rejected-event, and partial-state rooms.
+- fixtures for complete, missing-PDU, rejected-event, and partial-state rooms;
+- an expected deterministic report for the first fixture.
 
 ### M1: diagnosis and compare
 
@@ -142,7 +143,11 @@ format version may add an operator signature over the manifest.
 - local room inspection and rejected/outlier reports;
 - DAG-completeness and missing-input reports;
 - explicit local-only versus signed remote operation; and
-- deterministic JSON reports with no database writes.
+- deterministic JSON reports with no database writes;
+- server-key-aware signature findings;
+- recorded soft-fail metadata when the homeserver supplies it; and
+- streaming edge reads so the first implementation does not require a
+  RAM-heavy global edge index.
 
 ### M2: fetch and stage
 
@@ -189,36 +194,83 @@ The relevant comparison is capability-level:
 The key distinction is that SCE's initial fetch operations produce evidence for
 a later repair; they are not a backdoor write path.
 
-## Hybrid implementation boundary
+## Rust-first implementation boundary
 
-Sithnapse deployments using mtxdb make the storage boundary language-specific:
-mtxdb must be read through its existing `open_client_read_only` interface, not
-by reimplementing its on-disk format in Python.
+SCE is Rust-first. Sithnapse deployments using mtxdb must be read through the
+existing read-only mtxdb API, not by reimplementing its on-disk format.
 
-The initial implementation therefore uses a hybrid boundary:
+The initial workspace should contain:
 
 ```text
-Python CLI/config/federation signing
-              |
-              | versioned JSON over subprocess stdin/stdout
-              v
-Rust comparison engine
-  SQL adapter | mtxdb read-only adapter
+sce CLI
+  ├── mtxdb adapter (first implementation)
+  ├── report and comparison engine
+  └── rezzy federation/state-resolution integration
 ```
 
-The first milestone ships the Python CLI and SQL adapter. A Rust engine for
-mtxdb can be developed and tested independently, then selected behind the same
-report schema. A subprocess is preferred initially over PyO3: it keeps the Rust
-tool independently usable and avoids wheel/ABI packaging constraints. PyO3 can
-be added later if profiling demonstrates that process boundaries matter.
+`mtxdb-cli` is a useful inspection and export oracle, but it is currently a
+binary-only package. SCE should depend on the `mtxdb` library directly for
+room-scoped reads and use the existing read-only client semantics. A dedicated
+Matrix export API can be extracted from `mtxdb-cli` later if direct library
+access is insufficient.
 
-The local-state adapter is intentionally narrow and backend-neutral. It must
-provide the event, edge, rejection, and state-group material needed for a room
-report; the comparison engine must not know whether those records came from
-SQL or mtxdb.
+Rezzy already exposes reusable library APIs for gap analysis, event hashing,
+state resolution, signature verification, and JSONL handling. Its CLI crate
+also exposes signed federation request and remote-DAG functions. SCE should
+reuse those APIs rather than implement a second federation client or resolver.
+If a needed workflow is currently CLI-internal—such as gap-fill orchestration—
+extract it into a public rezzy library module before depending on it.
 
-The report schema is the compatibility contract. Shared fixtures should be
-read through both engines and their normalized JSON reports compared. This
-cross-check is required before treating the Rust path as equivalent to the
-Python path, and it also protects deterministic ordering and exit-code
-behavior.
+Gap filling should take a fetcher trait or closure. The dry-run implementation
+uses a fake fetcher in tests and reports what would be requested; the network
+implementation supplies the signed federation fetcher later. SCE must not use
+Rezzy's client-server `fetch_room_state` helper for this path, since it accepts
+a user access token rather than performing the intended server-server request.
+
+Until the APIs stabilize, pin `mtxdb` and `rezzy` as path or git dependencies
+at exact revisions. Update those pins deliberately alongside fixture and
+report changes.
+
+The report schema remains the compatibility contract. M1 should produce
+deterministic reports from mtxdb and compare them with shared JSONL fixtures
+processed through rezzy. A future PostgreSQL adapter can implement the same
+local-state trait without changing the report or comparison engine, but it is
+not part of the early milestones.
+
+## Evidence and validation model
+
+Every finding carries an evidence category:
+
+1. **Self-verifiable offline** — event hashes, canonical JSON, DAG structure,
+   and auth checks against the claimed state.
+2. **Requires signing keys** — event signature validation.
+3. **Homeserver-local metadata** — soft-fail status, outlier flags, and
+   recorded rejection reasons.
+
+The report also lists categories that were not evaluated. Missing signing keys
+produce `unverifiable`, never `invalid`. This distinguishes a bad signature
+from a key that is unavailable or outside the known cache.
+
+Signing-key material is an explicit input to a run. The key cache records the
+source server, fetched-at time, validity interval, and response provenance so a
+report can be replayed offline. Historical-event validation must apply the
+room-version-specific key validity rules rather than assuming that the current
+key is sufficient. Rezzy's encrypted local signing-key handling remains the
+source for SCE's own server key.
+
+Soft-fail is tri-state: `soft_failed`, `not_soft_failed`, or `unknown`.
+Unknown is the correct result when mtxdb/Sithnapse has not preserved the local
+flag. Soft-fail differences between servers are not state divergence by
+themselves; they become findings only when they change the resolved state.
+Recorded rejection is separate from recomputed rejection. Rezzy can recompute
+the deterministic auth result, and disagreement with the recorded rejection
+status is a finding in the homeserver-local metadata category.
+
+## Edge streaming boundary
+
+M1 should request a streaming edge iterator from mtxdb, scoped to one room and
+bounded by the requested limit/depth. It should not require loading every edge
+for every room into memory. Rezzy can build a per-room roaring-bitmap graph
+when useful, with a size warning for unusually large rooms. Any future mtxdb
+edge-index memory redesign stays behind this iterator and does not change SCE's
+diagnostic contract.
