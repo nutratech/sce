@@ -45,6 +45,25 @@ same argument shape and predictable output conventions where possible, so an
 operator familiar with Congruent can use SCE without learning a completely
 different console vocabulary.
 
+## First implementation milestone: diagnosis and compare
+
+The first implementation is deliberately read-only and dry-run only. It
+covers room inspection, rejected/outlier reporting, DAG-completeness checks,
+and state comparison. It does not write the database, create backups, stage
+outliers, or apply repairs.
+
+State comparison has two explicit modes:
+
+- local-only comparison, using the Synapse database and local event material;
+- remote comparison, requiring explicit server names and using the homeserver's
+  signing key for outbound `/state_ids` and `/state` federation requests.
+
+Remote comparison is therefore not presented as an offline operation. It must
+make the request destination and authentication mode visible in its report.
+
+Missing-PDU fetching is milestone 2. State replay/rebuild is milestone 3.
+Both depend on the diagnosis and comparison results from this first milestone.
+
 ## Proposed command surface
 
 Names are provisional, but the safety boundaries are intentional:
@@ -117,16 +136,22 @@ format version may add an operator signature over the manifest.
 - room inspection report; and
 - fixtures for complete, missing-PDU, rejected-event, and partial-state rooms.
 
-### M1: diagnosis and staging
+### M1: diagnosis and compare
 
 - local/remote state comparison;
+- local room inspection and rejected/outlier reports;
+- DAG-completeness and missing-input reports;
+- explicit local-only versus signed remote operation; and
+- deterministic JSON reports with no database writes.
+
+### M2: fetch and stage
+
 - remote PDU, state, and auth-chain fetch;
 - bundle validation and deterministic manifests;
 - retry/rate-limit handling; and
-- no database writes beyond normal Synapse federation-side effects, if the
-  selected integration requires them.
+- backup and apply gating before any outlier staging.
 
-### M2: offline replay plan
+### M3: offline replay plan
 
 - topological DAG walk;
 - fixed-code state/auth replay;
@@ -134,14 +159,14 @@ format version may add an operator signature over the manifest.
 - explicit missing-input refusal; and
 - reproducible plan files.
 
-### M3: offline publication
+### M4: offline publication
 
 - one-room state-group/HAMT publication where the Synapse version supports it;
 - current-state and rejection updates through an audited adapter;
 - cache/stream repair; and
 - rollback metadata and post-apply verification.
 
-### M4: online administration
+### M5: online administration
 
 - authenticated local admin transport;
 - room-scoped fencing;
