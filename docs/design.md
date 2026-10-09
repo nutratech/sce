@@ -188,3 +188,37 @@ The relevant comparison is capability-level:
 
 The key distinction is that SCE's initial fetch operations produce evidence for
 a later repair; they are not a backdoor write path.
+
+## Hybrid implementation boundary
+
+Sithnapse deployments using mtxdb make the storage boundary language-specific:
+mtxdb must be read through its existing `open_client_read_only` interface, not
+by reimplementing its on-disk format in Python.
+
+The initial implementation therefore uses a hybrid boundary:
+
+```text
+Python CLI/config/federation signing
+              |
+              | versioned JSON over subprocess stdin/stdout
+              v
+Rust comparison engine
+  SQL adapter | mtxdb read-only adapter
+```
+
+The first milestone ships the Python CLI and SQL adapter. A Rust engine for
+mtxdb can be developed and tested independently, then selected behind the same
+report schema. A subprocess is preferred initially over PyO3: it keeps the Rust
+tool independently usable and avoids wheel/ABI packaging constraints. PyO3 can
+be added later if profiling demonstrates that process boundaries matter.
+
+The local-state adapter is intentionally narrow and backend-neutral. It must
+provide the event, edge, rejection, and state-group material needed for a room
+report; the comparison engine must not know whether those records came from
+SQL or mtxdb.
+
+The report schema is the compatibility contract. Shared fixtures should be
+read through both engines and their normalized JSON reports compared. This
+cross-check is required before treating the Rust path as equivalent to the
+Python path, and it also protects deterministic ordering and exit-code
+behavior.
