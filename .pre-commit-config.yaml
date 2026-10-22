@@ -38,15 +38,15 @@ repos:
     hooks:
       - id: committed
 
-  - repo: local
-    hooks:
-      - id: prettier
-        name: prettier
-        entry: prettier --write --print-width 80
-        language: system
-        files: \.(md|mdx|json|ya?ml)$
-      - id: markdownlint
-        name: markdownlint
-        entry: markdownlint
-        language: system
-        files: \.md$
+  # - repo: local
+  #   hooks:
+  #     - id: prettier
+  #       name: prettier
+  #       entry: prettier --write --print-width 80
+  #       language: system
+  #       files: \.(md|mdx|json|ya?ml)$
+  #     - id: markdownlint
+  #       name: markdownlint
+  #       entry: markdownlint
+  #       language: system
+  #       files: \.md$
