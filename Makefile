@@ -4,6 +4,7 @@ SHELL := /bin/bash
 MAKEFLAGS += --no-print-directory
 
 CARGO ?= cargo
+PYTHON ?= python3
 
 .PHONY: _help
 _help:
@@ -14,26 +15,26 @@ _help:
 help: _help
 
 .PHONY: format
-format: ##H Run pre-commit hooks and format Rust code
+format: ##H Format Python and documentation
 	pre-commit run --all-files
-	prettier --prose-wrap always --print-width 80 --write $$(git ls-files '*.md' '*.y*ml')
-	markdownlint $$(git ls-files '*.md')
+	npx --no-install prettier --prose-wrap always --print-width 80 --write $$(git ls-files '*.md' '*.mdx' '*.json' '*.y*ml')
+	npx --no-install markdownlint $$(git ls-files '*.md')
 	# $(CARGO) fmt --all
-	black $$(git ls-files '*.py')
-	isort $$(git ls-files '*.py')
-	ruff format $$(git ls-files '*.py')
-	ruff check --fix $$(git ls-files '*.py')
+	$(PYTHON) -m black $$(git ls-files '*.py')
+	$(PYTHON) -m isort $$(git ls-files '*.py')
+	$(PYTHON) -m ruff format $$(git ls-files '*.py')
+	$(PYTHON) -m ruff check --fix $$(git ls-files '*.py')
 
 .PHONY: lint
-lint: ##H Run lints
+lint: ##H Run Python lints
 	# $(CARGO) clippy --workspace --all-targets --all-features -- -D warnings
-	flake8 --max-line-length 88 $$(git ls-files '*.py')
-	ruff check $$(git ls-files '*.py')
-	mypy $$(git ls-files '*.py')
+	$(PYTHON) -m flake8 --max-line-length 88 $$(git ls-files '*.py')
+	$(PYTHON) -m ruff check $$(git ls-files '*.py')
+	$(PYTHON) -m mypy $$(git ls-files '*.py')
 
-# .PHONY: test
-# test: ##H Run tests
-# 	$(CARGO) test --workspace --all-targets --all-features
+.PHONY: test
+test: ##H Run Python tests
+	PYTHONPATH=src $(PYTHON) -m unittest discover -s tests -v
 
 # .PHONY: doc
 # doc: ##H Build Rust documentation

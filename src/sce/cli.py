@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import sqlite3
 import sys
 
 from . import __version__
@@ -46,10 +47,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if args.command == "export-room":
-        export_room(args.database, args.room_id, args.server, args.output)
-    elif args.command == "export-server-keys":
-        export_server_keys(args.database, args.output, args.origin)
+    try:
+        if args.command == "export-room":
+            export_room(args.database, args.room_id, args.server, args.output)
+        elif args.command == "export-server-keys":
+            export_server_keys(args.database, args.output, args.origin)
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        print(f"sce: error: {exc}", file=sys.stderr)
+        return ERROR
     return CLEAN
 
 
