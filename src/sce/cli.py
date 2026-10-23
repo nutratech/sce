@@ -22,7 +22,8 @@ def build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command")
 
     room = commands.add_parser(
-        "export-room", help="Export a Synapse room DAG as mtxdb-export/v1 JSONL"
+        "export-room",
+        help="Export a Synapse room DAG as mtxdb-export/v1 JSONL",
     )
     room.add_argument("room_id")
     room.add_argument("--database", required=True, help="Synapse SQLite database path")
@@ -32,7 +33,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     keys = commands.add_parser(
-        "export-server-keys", help="Export Synapse's cached federation keys as JSONL"
+        "export-server-keys",
+        help="Export Synapse's cached federation keys as JSONL",
     )
     keys.add_argument("--database", required=True, help="Synapse SQLite database path")
     keys.add_argument(

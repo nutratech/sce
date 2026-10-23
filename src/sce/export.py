@@ -37,7 +37,8 @@ def _output(path: str) -> tuple[TextIO, bool]:
 def _has_table(db: sqlite3.Connection, table: str) -> bool:
     return (
         db.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (table,),
         ).fetchone()
         is not None
     )
@@ -103,7 +104,8 @@ def export_room(database: str, room_id: str, server: str, output_path: str) -> N
                    FROM events AS e
                    JOIN event_json AS ej ON ej.event_id=e.event_id
                    WHERE e.room_id=?
-                   ORDER BY e.topological_ordering, e.stream_ordering, e.event_id""",
+                   ORDER BY e.topological_ordering, e.stream_ordering,
+                            e.event_id""",
                 (room_id,),
             ).fetchall()
             if not rows:
@@ -136,16 +138,27 @@ def export_room(database: str, room_id: str, server: str, output_path: str) -> N
 
             _line(
                 output,
-                {"t": "header", "format": FORMAT, "server": server, "room_id": room_id},
+                {
+                    "t": "header",
+                    "format": FORMAT,
+                    "server": server,
+                    "room_id": room_id,
+                },
             )
             count = 0
-            for event_id, outlier, rejection_reason, internal_json, pdu_json in rows:
+            for (
+                event_id,
+                outlier,
+                rejection_reason,
+                internal_json,
+                pdu_json,
+            ) in rows:
                 pdu = _json(pdu_json)
                 internal = _json(internal_json) or {}
                 prev_ids = prev.get(event_id, [])
                 auth_ids = auth.get(event_id, [])
                 # Some older Synapse schemas have no persisted edge rows for
-                # all events. The PDU is the authoritative fallback in that case.
+                # all events. The PDU is the authoritative fallback then.
                 if not prev_ids:
                     prev_ids = sorted(_edge_ids(pdu.get("prev_events", [])))
                 if not auth_ids:
@@ -201,7 +214,7 @@ def _b64(value: str) -> str:
 def export_server_keys(
     database: str, output_path: str, origin: str | None = None
 ) -> None:
-    """Export cached Synapse signing-key responses as mtxdb server-key records."""
+    """Export cached Synapse signing-key responses as mtxdb records."""
     output, close_output = _output(output_path)
     try:
         with open_sqlite_read_only(database) as db:
@@ -228,10 +241,13 @@ def export_server_keys(
                 response_bytes = bytes(raw_response)
                 response = _json(raw_response)
                 if from_server != server_name:
-                    rank = int(added or 0)
+                    notary_rank = int(added or 0)
                     previous = notary_payloads.get(server_name)
-                    if previous is None or rank >= previous[0]:
-                        notary_payloads[server_name] = (rank, response_bytes)
+                    if previous is None or notary_rank >= previous[0]:
+                        notary_payloads[server_name] = (
+                            notary_rank,
+                            response_bytes,
+                        )
                 for field in ("verify_keys", "old_verify_keys"):
                     keys = response.get(field, {})
                     if not isinstance(keys, dict):
@@ -263,10 +279,13 @@ def export_server_keys(
                         ):
                             record["expired_ts"] = int(metadata["expired_ts"])
                         selection_key = (server_name, key_id)
-                        rank = (int(added or 0), int(from_server == server_name))
-                        if rank >= selected_rank.get(selection_key, (-1, -1)):
+                        key_rank = (
+                            int(added or 0),
+                            int(from_server == server_name),
+                        )
+                        if key_rank >= selected_rank.get(selection_key, (-1, -1)):
                             selected[selection_key] = record
-                            selected_rank[selection_key] = rank
+                            selected_rank[selection_key] = key_rank
             for key in sorted(selected):
                 _line(output, selected[key])
             for server_name in sorted(notary_payloads):

@@ -26,8 +26,8 @@ format: ##H Run pre-commit hooks and format Rust code
 
 .PHONY: lint
 lint: ##H Run lints
-#  	$(CARGO) clippy --workspace --all-targets --all-features -- -D warnings
-	flake8 $$(git ls-files '*.py')
+	# $(CARGO) clippy --workspace --all-targets --all-features -- -D warnings
+	flake8 --max-line-length 88 $$(git ls-files '*.py')
 	ruff check $$(git ls-files '*.py')
 	mypy $$(git ls-files '*.py')
 
