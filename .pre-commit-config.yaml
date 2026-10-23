@@ -42,11 +42,12 @@ repos:
     hooks:
       - id: prettier
         name: prettier
-        entry: prettier --write --print-width 80
+        entry:
+          npx --no-install prettier --write --prose-wrap always --print-width 80
         language: system
         files: \.(md|mdx|json|ya?ml)$
       - id: markdownlint
         name: markdownlint
-        entry: markdownlint
+        entry: npx --no-install markdownlint
         language: system
         files: \.md$

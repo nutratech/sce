@@ -5,7 +5,6 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 from types import TracebackType
-from typing import Self
 
 
 class ReadOnlyViolation(RuntimeError):
@@ -13,7 +12,7 @@ class ReadOnlyViolation(RuntimeError):
 
 
 class ReadOnlySQLite:
-    """SQLite connection opened read-only and guarded by SQLite's authorizer."""
+    """SQLite connection opened read-only and guarded by its authorizer."""
 
     def __init__(self, path: Path) -> None:
         self.path = path

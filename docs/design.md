@@ -33,8 +33,8 @@ From Congruent, which is the primary operator-surface template:
 - DAG/state export and import concepts; and
 - separating ordinary authenticated insertion from emergency force operations.
 
-These are capability references, not an instruction to copy Congruent's
-database or command implementation into Synapse.
+These are capability references, not an instruction to copy Congruent's database
+or command implementation into Synapse.
 
 SCE should copy Congruent's operator ergonomics wherever they make sense. In
 particular, normal diagnostics and recovery preparation belong in the regular
@@ -47,10 +47,10 @@ different console vocabulary.
 
 ## First implementation milestone: diagnosis and compare
 
-The first implementation is deliberately read-only and dry-run only. It
-covers room inspection, rejected/outlier reporting, DAG-completeness checks,
-and state comparison. It does not write the database, create backups, stage
-outliers, or apply repairs.
+The first implementation is deliberately read-only and dry-run only. It covers
+room inspection, rejected/outlier reporting, DAG-completeness checks, and state
+comparison. It does not write the database, create backups, stage outliers, or
+apply repairs.
 
 State comparison has two explicit modes:
 
@@ -61,8 +61,8 @@ State comparison has two explicit modes:
 Remote comparison is therefore not presented as an offline operation. It must
 make the request destination and authentication mode visible in its report.
 
-Missing-PDU fetching is milestone 2. State replay/rebuild is milestone 3.
-Both depend on the diagnosis and comparison results from this first milestone.
+Missing-PDU fetching is milestone 2. State replay/rebuild is milestone 3. Both
+depend on the diagnosis and comparison results from this first milestone.
 
 ## Proposed command surface
 
@@ -105,8 +105,8 @@ endpoint, observed event ID, canonical hash, signature-validation result, and
 whether it was fetched as timeline, state, auth, or outlier material. Raw PDU
 JSON alone is not a sufficient recovery record.
 
-Bundles must never contain credentials or private signing keys. A future
-format version may add an operator signature over the manifest.
+Bundles must never contain credentials or private signing keys. A future format
+version may add an operator signature over the manifest.
 
 ## Safety invariants
 
@@ -122,9 +122,9 @@ format version may add an operator signature over the manifest.
   rejection status are checked before a plan can be applied.
 - Existing state groups and event rows are retained. Repair creates replacement
   material and records an audit trail before changing any live pointer.
-- Current-state tables, rejection state, replication streams, and caches are
-  one publication transaction from the operator's point of view. Direct SQL
-  edits are not a supported repair mechanism.
+- Current-state tables, rejection state, replication streams, and caches are one
+  publication transaction from the operator's point of view. Direct SQL edits
+  are not a supported repair mechanism.
 
 ## Milestones
 
@@ -146,8 +146,8 @@ format version may add an operator signature over the manifest.
 - deterministic JSON reports with no database writes;
 - server-key-aware signature findings;
 - recorded soft-fail metadata when the homeserver supplies it; and
-- streaming edge reads so the first implementation does not require a
-  RAM-heavy global edge index.
+- streaming edge reads so the first implementation does not require a RAM-heavy
+  global edge index.
 
 ### M2: fetch and stage
 
@@ -215,10 +215,10 @@ Matrix export API can be extracted from `mtxdb-cli` later if direct library
 access is insufficient.
 
 Rezzy already exposes reusable library APIs for gap analysis, event hashing,
-state resolution, signature verification, and JSONL handling. Its CLI crate
-also exposes signed federation request and remote-DAG functions. SCE should
-reuse those APIs rather than implement a second federation client or resolver.
-If a needed workflow is currently CLI-internal—such as gap-fill orchestration—
+state resolution, signature verification, and JSONL handling. Its CLI crate also
+exposes signed federation request and remote-DAG functions. SCE should reuse
+those APIs rather than implement a second federation client or resolver. If a
+needed workflow is currently CLI-internal—such as gap-fill orchestration—
 extract it into a public rezzy library module before depending on it.
 
 Gap filling should take a fetcher trait or closure. The dry-run implementation
@@ -227,9 +227,9 @@ implementation supplies the signed federation fetcher later. SCE must not use
 Rezzy's client-server `fetch_room_state` helper for this path, since it accepts
 a user access token rather than performing the intended server-server request.
 
-Until the APIs stabilize, pin `mtxdb` and `rezzy` as path or git dependencies
-at exact revisions. Update those pins deliberately alongside fixture and
-report changes.
+Until the APIs stabilize, pin `mtxdb` and `rezzy` as path or git dependencies at
+exact revisions. Update those pins deliberately alongside fixture and report
+changes.
 
 The report schema remains the compatibility contract. M1 should produce
 deterministic reports from mtxdb and compare them with shared JSONL fixtures
@@ -244,12 +244,12 @@ Every finding carries an evidence category:
 1. **Self-verifiable offline** — event hashes, canonical JSON, DAG structure,
    and auth checks against the claimed state.
 2. **Requires signing keys** — event signature validation.
-3. **Homeserver-local metadata** — soft-fail status, outlier flags, and
-   recorded rejection reasons.
+3. **Homeserver-local metadata** — soft-fail status, outlier flags, and recorded
+   rejection reasons.
 
 The report also lists categories that were not evaluated. Missing signing keys
-produce `unverifiable`, never `invalid`. This distinguishes a bad signature
-from a key that is unavailable or outside the known cache.
+produce `unverifiable`, never `invalid`. This distinguishes a bad signature from
+a key that is unavailable or outside the known cache.
 
 Signing-key material is an explicit input to a run. The key cache records the
 source server, fetched-at time, validity interval, and response provenance so a
@@ -258,19 +258,19 @@ room-version-specific key validity rules rather than assuming that the current
 key is sufficient. Rezzy's encrypted local signing-key handling remains the
 source for SCE's own server key.
 
-Soft-fail is tri-state: `soft_failed`, `not_soft_failed`, or `unknown`.
-Unknown is the correct result when mtxdb/Sithnapse has not preserved the local
-flag. Soft-fail differences between servers are not state divergence by
-themselves; they become findings only when they change the resolved state.
-Recorded rejection is separate from recomputed rejection. Rezzy can recompute
-the deterministic auth result, and disagreement with the recorded rejection
-status is a finding in the homeserver-local metadata category.
+Soft-fail is tri-state: `soft_failed`, `not_soft_failed`, or `unknown`. Unknown
+is the correct result when mtxdb/Sithnapse has not preserved the local flag.
+Soft-fail differences between servers are not state divergence by themselves;
+they become findings only when they change the resolved state. Recorded
+rejection is separate from recomputed rejection. Rezzy can recompute the
+deterministic auth result, and disagreement with the recorded rejection status
+is a finding in the homeserver-local metadata category.
 
 ## Edge streaming boundary
 
 M1 should request a streaming edge iterator from mtxdb, scoped to one room and
 bounded by the requested limit/depth. It should not require loading every edge
-for every room into memory. Rezzy can build a per-room roaring-bitmap graph
-when useful, with a size warning for unusually large rooms. Any future mtxdb
+for every room into memory. Rezzy can build a per-room roaring-bitmap graph when
+useful, with a size warning for unusually large rooms. Any future mtxdb
 edge-index memory redesign stays behind this iterator and does not change SCE's
 diagnostic contract.
